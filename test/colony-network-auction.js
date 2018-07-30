@@ -3,13 +3,8 @@ import { BN } from "bn.js";
 import { toBN } from "web3-utils";
 
 import { getTokenArgs, web3GetTransactionReceipt, web3GetCode, checkErrorRevert, forwardTime, getBlockTime } from "../helpers/test-helper";
-import { setupColonyVersionResolver } from "../helpers/upgradable-contracts";
 
 const EtherRouter = artifacts.require("EtherRouter");
-const Colony = artifacts.require("Colony");
-const ColonyFunding = artifacts.require("ColonyFunding");
-const ColonyTask = artifacts.require("ColonyTask");
-const Resolver = artifacts.require("Resolver");
 const IColony = artifacts.require("IColony");
 const IColonyNetwork = artifacts.require("IColonyNetwork");
 const DutchAuction = artifacts.require("DutchAuction");
@@ -28,28 +23,20 @@ contract("ColonyNetworkAuction", accounts => {
   let clny;
   let token;
   let createAuctionTxReceipt;
-  let resolverColonyNetworkDeployed;
 
   before(async () => {
     quantity = new BN(10).pow(new BN(36)).muln(3);
     clnyNeededForMaxPriceAuctionSellout = new BN(10).pow(new BN(54)).muln(3);
-    resolverColonyNetworkDeployed = await Resolver.deployed();
+    const etherRouter = await EtherRouter.deployed();
+    colonyNetwork = IColonyNetwork.at(etherRouter.address);
+
+    const metaColonyAddress = await colonyNetwork.getMetaColony.call();
+    metaColony = IColony.at(metaColonyAddress);
   });
 
   beforeEach(async () => {
-    const colonyTemplate = await Colony.new();
-    const colonyFunding = await ColonyFunding.new();
-    const colonyTask = await ColonyTask.new();
-    const resolver = await Resolver.new();
-    const etherRouter = await EtherRouter.new();
-    await etherRouter.setResolver(resolverColonyNetworkDeployed.address);
-    colonyNetwork = await IColonyNetwork.at(etherRouter.address);
-    await setupColonyVersionResolver(colonyTemplate, colonyTask, colonyFunding, resolver, colonyNetwork);
-
     clny = await Token.new("Colony Network Token", "CLNY", 18);
-    await colonyNetwork.createMetaColony(clny.address);
-    const metaColonyAddress = await colonyNetwork.getMetaColony.call();
-    metaColony = await IColony.at(metaColonyAddress);
+    await metaColony.setToken(clny.address);
     await clny.setOwner(metaColony.address);
     await metaColony.setTokenSupplyCeiling(
       toBN(2)
@@ -57,8 +44,6 @@ contract("ColonyNetworkAuction", accounts => {
         .subn(1)
         .toString()
     );
-
-    await colonyNetwork.startNextCycle();
 
     const args = getTokenArgs();
     token = await Token.new(...args);

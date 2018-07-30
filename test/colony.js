@@ -243,9 +243,10 @@ contract("Colony", addresses => {
       const initialRateAmount = 1000;
       await colony.setTokenIssuanceRate(initialRateAmount);
 
-      const [rateAmount, rateTimestamp] = await colony.getTokenIssuanceRate();
+      const [rateAmount, rateTimestamp, totalIssuedUnderRate] = await colony.getTokenIssuanceRate();
       assert.equal(rateAmount.toNumber(), initialRateAmount);
       assert.closeTo(rateTimestamp.toNumber(), blockTimestamp, 10);
+      assert.closeTo(totalIssuedUnderRate.toNumber(), blockTimestamp, 10);
     });
 
     it("should mint remaining available amount when changing rate", async () => {
@@ -274,9 +275,10 @@ contract("Colony", addresses => {
 
       const blockTimestamp = await currentBlockTime();
 
-      const [rateAmount, rateTimestamp] = await colony.getTokenIssuanceRate();
+      const [rateAmount, rateTimestamp, totalIssuedUnderRate] = await colony.getTokenIssuanceRate();
       assert.equal(rateAmount.toNumber(), newRateAmount);
       assert.closeTo(rateTimestamp.toNumber(), blockTimestamp, 10);
+      assert.closeTo(totalIssuedUnderRate.toNumber(), blockTimestamp, 10);
     });
 
     it("should not be able to increase issuance rate by more than 10 percent", async () => {
@@ -291,9 +293,28 @@ contract("Colony", addresses => {
       const newRateAmount = 12;
       await checkErrorRevert(colony.setTokenIssuanceRate(newRateAmount), "token-issuance-rate-change-too-big");
 
-      const [rateAmount, rateTimestamp] = await colony.getTokenIssuanceRate();
+      const [rateAmount, rateTimestamp, totalIssuedUnderRate] = await colony.getTokenIssuanceRate();
       assert.equal(rateAmount.toNumber(), initialRateAmount);
       assert.closeTo(rateTimestamp.toNumber(), blockTimestamp, 10);
+      assert.closeTo(totalIssuedUnderRate.toNumber(), blockTimestamp, 10);
+    });
+
+    it("should not be able to decrease issuance rate by more than 10 percent", async () => {
+      const blockTimestamp = await currentBlockTime();
+      const initialRateAmount = 20;
+      await colony.setTokenIssuanceRate(initialRateAmount);
+
+      // forward 4 weeks
+      await forwardTime(60 * 60 * 24 * 28, this);
+
+      // 20 percent less than initial rate
+      const newRateAmount = 16;
+      await checkErrorRevert(colony.setTokenIssuanceRate(newRateAmount), "token-issuance-rate-change-too-big");
+
+      const [rateAmount, rateTimestamp, totalIssuedUnderRate] = await colony.getTokenIssuanceRate();
+      assert.equal(rateAmount.toNumber(), initialRateAmount);
+      assert.closeTo(rateTimestamp.toNumber(), blockTimestamp, 10);
+      assert.closeTo(totalIssuedUnderRate.toNumber(), blockTimestamp, 10);
     });
 
     it("should be able to decrease issuance rate by 10 percent", async () => {
@@ -308,9 +329,10 @@ contract("Colony", addresses => {
 
       const blockTimestamp = await currentBlockTime();
 
-      const [rateAmount, rateTimestamp] = await colony.getTokenIssuanceRate();
+      const [rateAmount, rateTimestamp, totalIssuedUnderRate] = await colony.getTokenIssuanceRate();
       assert.equal(rateAmount.toNumber(), newRateAmount);
       assert.closeTo(rateTimestamp.toNumber(), blockTimestamp, 10);
+      assert.closeTo(totalIssuedUnderRate.toNumber(), blockTimestamp, 10);
     });
 
     it("should be able to change extremly high rates", async () => {
@@ -330,9 +352,10 @@ contract("Colony", addresses => {
 
       const blockTimestamp = await currentBlockTime();
 
-      const [rateAmount, rateTimestamp] = await colony.getTokenIssuanceRate();
-      assert.equal(rateAmount.toNumber(), newRateAmount);
+      const [rateAmount, rateTimestamp, totalIssuedUnderRate] = await colony.getTokenIssuanceRate();
+      assert.equal(toBN(rateAmount).toString(), newRateAmount);
       assert.closeTo(rateTimestamp.toNumber(), blockTimestamp, 10);
+      assert.closeTo(totalIssuedUnderRate.toNumber(), blockTimestamp, 10);
     });
   });
 
@@ -352,6 +375,22 @@ contract("Colony", addresses => {
       const [availableAmount, availableSeconds] = await colony.getAvailableIssuanceAmountAndSeconds();
       assert.equal(availableAmount.toNumber(), 10);
       assert.closeTo(availableSeconds.toNumber(), oneMonth, 10);
+    });
+
+    it("should return correct amount issued in seconds", async () => {
+      const blockTimestamp = await currentBlockTime();
+
+      const initialRateAmount = 10;
+      await colony.setTokenIssuanceRate(initialRateAmount);
+
+      // 15 days
+      const halfMonth = 60 * 60 * 24 * 15;
+      await forwardTime(halfMonth, this);
+
+      await colony.mintTokens(5);
+
+      const [, , totalIssuedUnderRate] = await colony.getTokenIssuanceRate();
+      assert.closeTo(totalIssuedUnderRate.toNumber(), blockTimestamp + halfMonth, 10);
     });
 
     it("should be able to mint tokens by rate", async () => {

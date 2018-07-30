@@ -175,7 +175,8 @@ contract IColony {
   /// @notice Get token issuance rate
   /// @return amount Amount of tokens
   /// @return timestamp Timestamp of the last change of issuance rate
-  function getTokenIssuanceRate() public view returns (uint256 amount, uint256 timestamp);
+  /// @return totalAmountIssuedUnderRate How many tokens are issued in terms of seconds
+  function getTokenIssuanceRate() public view returns (uint256 amount, uint256 timestamp, uint256 totalAmountIssuedUnderRate);
 
   /// @notice Get amount of available tokens for issuance and seconds since last issuance
   /// @return amount Amount of tokens
