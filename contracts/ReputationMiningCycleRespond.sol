@@ -52,7 +52,7 @@ contract ReputationMiningCycleRespond is ReputationMiningCycleStorage, PatriciaT
   uint constant U_ORIGIN_SKILL_REPUTATION_VALUE = 10;
 
   function respondToChallenge(
-    uint256[11] u, //An array of 12 UINT Params, ordered as given above.
+    uint256[11] u, //An array of 11 UINT Params, ordered as given above.
     bytes _reputationKey,
     bytes32[] reputationSiblings,
     bytes agreeStateReputationValue,
@@ -61,7 +61,10 @@ contract ReputationMiningCycleRespond is ReputationMiningCycleStorage, PatriciaT
     bytes32[] disagreeStateSiblings,
     bytes previousNewReputationKey,
     bytes previousNewReputationValue,
-    bytes32[] previousNewReputationSiblings
+    bytes32[] previousNewReputationSiblings,
+    bytes originReputationKey,
+    bytes originReputationValue,
+    bytes32[] originReputationSiblings
   ) public
     challengeOpen(u[U_ROUND], u[U_IDX])
   {
@@ -98,11 +101,12 @@ contract ReputationMiningCycleRespond is ReputationMiningCycleStorage, PatriciaT
       agreeStateSiblings,
       previousNewReputationKey,
       previousNewReputationValue,
-      previousNewReputationSiblings);
+      previousNewReputationSiblings,
+      originReputationKey,
+      originReputationValue,
+      originReputationSiblings);
 
-    // If everthing checked out, note that we've responded to the challenge.
-    disputeRounds[u[U_ROUND]][u[U_IDX]].challengeStepCompleted += 1;
-    disputeRounds[u[U_ROUND]][u[U_IDX]].lastResponseTimestamp = now;
+    confirmChallengeCompleted(u);
 
     // Safety net?
     /* if (disputeRounds[round][idx].challengeStepCompleted==disputeRounds[round][opponentIdx].challengeStepCompleted){
@@ -113,6 +117,12 @@ contract ReputationMiningCycleRespond is ReputationMiningCycleStorage, PatriciaT
   /////////////////////////
   // Internal functions
   /////////////////////////
+
+  function confirmChallengeCompleted(uint256[11] u) internal {
+    // If everthing checked out, note that we've responded to the challenge.
+    disputeRounds[u[U_ROUND]][u[U_IDX]].challengeStepCompleted += 1;
+    disputeRounds[u[U_ROUND]][u[U_IDX]].lastResponseTimestamp = now;
+  }
 
   function checkKey(uint256[11] u, bytes memory _reputationKey, bytes memory _reputationValue) internal {
     // If the state transition we're checking is less than the number of nodes in the currently accepted state, it's a decay transition
@@ -285,7 +295,10 @@ contract ReputationMiningCycleRespond is ReputationMiningCycleStorage, PatriciaT
     bytes32[] agreeStateSiblings,
     bytes previousNewReputationKey,
     bytes previousNewReputationValueBytes,
-    bytes32[] previousNewReputationSiblings
+    bytes32[] previousNewReputationSiblings,
+    bytes originReputationKey,
+    bytes originReputationValue,
+    bytes32[] originReputationSiblings
   ) internal
   {
     uint256 agreeStateReputationValue;
@@ -309,7 +322,7 @@ contract ReputationMiningCycleRespond is ReputationMiningCycleStorage, PatriciaT
       previousNewReputationValueBytes,
       previousNewReputationSiblings);
 
-    proveValue(u, agreeStateReputationValue, disagreeStateReputationValue);
+    proveValue(u, agreeStateReputationValue, disagreeStateReputationValue, originReputationValue);
   }
 
   function proveUID(
@@ -346,7 +359,13 @@ contract ReputationMiningCycleRespond is ReputationMiningCycleStorage, PatriciaT
     }
   }
 
-  function proveValue(uint256[11] u, uint256 _agreeStateReputationValue, uint256 _disagreeStateReputationValue) internal  view {
+  function proveValue(
+    uint256[11] u,
+    uint256 _agreeStateReputationValue,
+    uint256 _disagreeStateReputationValue,
+    bytes _originReputationValue
+  ) internal view 
+  {
     ReputationLogEntry storage logEntry = reputationUpdateLog[u[U_LOG_ENTRY_NUMBER]];
     
     // We don't care about underflows for the purposes of comparison, but for the calculation we deem 'correct'.
@@ -369,8 +388,11 @@ contract ReputationMiningCycleRespond is ReputationMiningCycleStorage, PatriciaT
         uint nChildUpdates = logEntry.nUpdates/2 - 1 - nParents;
 
         if (relativeUpdateNumber < nChildUpdates) {
-          // TODO: Prove reputation from u[U_ORIGIN_SKILL_REPUTATION_VALUE]
-          amount = (amount*int(_agreeStateReputationValue))/int(u[U_ORIGIN_SKILL_REPUTATION_VALUE]);
+          int originSkillReputationValue;
+          assembly {
+              originSkillReputationValue := mload(add(_originReputationValue, 32))
+          }
+          amount = (amount*int(_agreeStateReputationValue))/originSkillReputationValue;
         }
       }
 
