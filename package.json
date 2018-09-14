@@ -64,7 +64,7 @@
     "eslint-plugin-import": "^2.11.0",
     "eslint-plugin-prettier": "^2.6.0",
     "eth-ens-namehash": "^2.0.8",
-    "eth-gas-reporter": "^0.1.2",
+    "eth-gas-reporter": "^0.1.12",
     "ethereumjs-util": "^5.2.0",
     "ganache-cli": "https://github.com/area/ganache-cli.git#fakefix/eth_call_selfdestruct",
     "husky": "^1.0.0-rc.13",
